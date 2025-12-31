@@ -1,6 +1,9 @@
-[gd_scene load_steps=2 format=3 uid="uid://buh0yfn8batec"]
+[gd_scene load_steps=4 format=3 uid="uid://buh0yfn8batec"]
 
 [ext_resource type="Script" uid="uid://c045u3kjfqjwn" path="res://src/control.gd" id="1_5kq6d"]
+[ext_resource type="Script" uid="uid://ldhb5m6sb441" path="res://addons/RangeSlider/h_range_slider.gd" id="2_2mddv"]
+
+[sub_resource type="Theme" id="Theme_xpj3s"]
 
 [node name="Control" type="Control"]
 layout_mode = 3
@@ -11,13 +14,20 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_5kq6d")
 
-[node name="VideoStreamPlayer" type="VideoStreamPlayer" parent="."]
+[node name="AspectRatioContainer" type="AspectRatioContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+stretch_mode = 3
+
+[node name="VideoStreamPlayer" type="VideoStreamPlayer" parent="AspectRatioContainer"]
+layout_mode = 2
+expand = true
+loop = true
+buffering_msec = 1000
 
 [node name="UIContainer" type="HBoxContainer" parent="."]
 layout_mode = 1
@@ -25,17 +35,52 @@ anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -27.0
+offset_top = -59.0
 grow_horizontal = 2
 grow_vertical = 0
+theme = SubResource("Theme_xpj3s")
 
 [node name="StartStopButton" type="Button" parent="UIContainer"]
 layout_mode = 2
 size_flags_horizontal = 0
 text = "Play"
 
-[node name="ProgressBar" type="ProgressBar" parent="UIContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="UIContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 0
+
+[node name="HRangeSlider" type="Control" parent="UIContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+size_flags_vertical = 2
+script = ExtResource("2_2mddv")
+metadata/_custom_type_script = "uid://ldhb5m6sb441"
+
+[node name="ProgressSlider" type="HSlider" parent="UIContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 10
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="UIContainer"]
+custom_minimum_size = Vector2(50, 0)
+layout_mode = 2
+
+[node name="loop_begin_label" type="Label" parent="UIContainer/VBoxContainer2"]
+layout_mode = 2
+text = "0.0"
+
+[node name="loop_end_label" type="Label" parent="UIContainer/VBoxContainer2"]
+layout_mode = 2
+text = "1.0"
+
+[node name="current_playtime_label" type="Label" parent="UIContainer/VBoxContainer2"]
+layout_mode = 2
+text = "0.0"
+
+[node name="max_playtime_label" type="Label" parent="UIContainer/VBoxContainer2"]
+layout_mode = 2
+text = "1.0"
 
 [node name="Timer" type="Timer" parent="."]

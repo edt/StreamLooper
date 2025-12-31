@@ -1,36 +1,42 @@
 extends Control
-signal play_pause
-signal time_selected(time : float)
 
-var dragging : bool = false
-
-var stream_duration : float
 var loop_start : float = -1
 var loop_end : float = -1
-var loop_selected: bool = false
 
-@onready var progress_bar = $UIContainer/ProgressBar
-#@onready var time_total_label = $MarginContainer/Controls/TimeDisplay/TimeTotal
-#@onready var time_current_label = $MarginContainer/Controls/TimeDisplay/TimeCurrent
-@onready var VideoPlayer = $VideoStreamPlayer
+@onready var progress_bar = $UIContainer/VBoxContainer/ProgressSlider
+@onready var VideoPlayer = $AspectRatioContainer/VideoStreamPlayer
 @onready var start_stop_button = $UIContainer/StartStopButton
-
+@onready var loop_range = $UIContainer/VBoxContainer/HRangeSlider
 
 
 func _ready() -> void:
-	get_viewport().files_dropped.connect(_on_files_dropped)
-	
-	start_stop_button.pressed.connect(_button_pressed)
-	
-	#VideoPlayer.stream = load("/home/edt/Downloads/VideoDownloader/Gnarls Barkley - Crazy - From the Basement.mp4")
-	$VideoStreamPlayer.stream = load("/home/edt/Downloads/VideoDownloader/Bones Owens performs ＂Sunday Fix＂ ｜ Live from Carter Vintage Guitars ｜ Nashville, TN.mp4")
-	stream_duration = $VideoStreamPlayer.get_stream_length()
-	progress_bar.set_max(stream_duration)
-	
-	$Timer.timeout.connect(_timer_tick)
-	$Timer.start()
-	
 
+	get_tree().root.files_dropped.connect(_on_files_dropped)
+	start_stop_button.pressed.connect(_button_pressed)
+	progress_bar.value_changed.connect(_timestamp_changed)
+
+	var args = OS.get_cmdline_args()
+	print("args: ", args)
+	for arg in args:
+		if FileAccess.file_exists(arg):
+			_setup_stream(arg)
+			break
+
+	$Timer.timeout.connect(_timer_tick)
+
+# callback for ProgressSlider
+func _timestamp_changed(new_timestamp: float) -> void:
+	update_stream_position(new_timestamp)
+	
+# update allthings related to the current stream position
+func update_stream_position(new_timestamp: float) -> void:
+	VideoPlayer.set_stream_position(new_timestamp)
+	update_label()
+
+func update_label() ->void:
+	var pos = VideoPlayer.get_stream_position()
+	$UIContainer/VBoxContainer2/current_playtime_label.text=str(pos).pad_decimals(2)
+	
 func _input(event):
 	if event is InputEventKey and event.pressed:
 		print(OS.get_keycode_string(event.get_key_label_with_modifiers()))
@@ -38,44 +44,79 @@ func _input(event):
 			print("space was pressed")
 			toggle_play_state()
 		elif event.keycode == KEY_SPACE and Input.is_key_pressed(KEY_SHIFT):
-			set_loop_section()
+			#set_loop_section()
+			pass
+		elif event.keycode == KEY_LEFT:
+			update_stream_position(VideoPlayer.get_stream_position() - 5)
+		elif event.keycode == KEY_RIGHT:
+			update_stream_position(VideoPlayer.get_stream_position() + 5)
+
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(_delta: float) -> void:
 	pass
 
 func _timer_tick() -> void:
-	var pos = $VideoStreamPlayer.get_stream_position()
+	var pos = VideoPlayer.get_stream_position()
 
-	if loop_selected:
-		if pos >= loop_end:
-			$VideoStreamPlayer.set_stream_position(loop_start)
-			pos = loop_start
-	progress_bar.set_value(pos)	
+	if pos >= loop_end:
+		VideoPlayer.set_stream_position(loop_start)
+		pos = loop_start
+	progress_bar.set_value_no_signal(pos)
+	update_label()
 
 func _on_files_dropped(files):
+	print("............")
 	print(files)
+	_setup_stream(files.get(0))
 
-func set_loop_section() -> void:
-	var pos = $VideoStreamPlayer.get_stream_position()
-	print("pos: ", pos)
+# initialize all elements for a new stream
+func _setup_stream(file_name: String) -> void:
 	
-	if loop_start != -1:
-		loop_end = pos
-		loop_selected = true
-	else:
-		loop_start = pos
+	VideoPlayer.stop()
+	$Timer.stop()
+	
+	print("Loading ", file_name)
+	VideoPlayer.stream = load(file_name)
+	var stream_duration = VideoPlayer.get_stream_length()
+	progress_bar.set_max(stream_duration)
+	
+	loop_end = stream_duration
+	loop_start = 0
+	
+	loop_range.minimum=0
+	loop_range.maximum = stream_duration
+	loop_range.range_min_size = 2
+	loop_range.range_begin = 0
+	loop_range.range_end = stream_duration
+	loop_range.changed.connect(loop_selection_changed)
+	
+	$UIContainer/VBoxContainer2/current_playtime_label.text= "0"
+	$UIContainer/VBoxContainer2/max_playtime_label.text = str(stream_duration).pad_decimals(2)
+	$UIContainer/VBoxContainer2/loop_begin_label.text= "0"
+	$UIContainer/VBoxContainer2/loop_end_label.text=str(stream_duration).pad_decimals(2)
+	
+	get_window().title = "StreamLooper - " + VideoPlayer.get_stream_name()
+	
+	$Timer.start()
 
+func loop_selection_changed(range_begin : float, range_end : float):
+	loop_start=range_begin
+	loop_end=range_end
+	$UIContainer/VBoxContainer2/loop_begin_label.text= str(range_begin).pad_decimals(2)
+	$UIContainer/VBoxContainer2/loop_end_label.text=str(range_end).pad_decimals(2)
+
+# callback play/pause button
 func _button_pressed():
 	toggle_play_state()
 	
 func toggle_play_state() -> void:
-	print("playing: ", $VideoStreamPlayer.is_playing(), " paused:",  $VideoStreamPlayer.is_paused())
-	if $VideoStreamPlayer.is_playing() and not $VideoStreamPlayer.is_paused():
+	print("playing: ", VideoPlayer.is_playing(), " paused:",  VideoPlayer.is_paused())
+	if VideoPlayer.is_playing() and not VideoPlayer.is_paused():
 		start_stop_button.text = "Play"
-		$VideoStreamPlayer.set_paused(true)
-	elif $VideoStreamPlayer.is_playing() and $VideoStreamPlayer.is_paused():
+		VideoPlayer.set_paused(true)
+	elif VideoPlayer.is_playing() and VideoPlayer.is_paused():
 		start_stop_button.text = "Pause"
-		$VideoStreamPlayer.set_paused(false)
+		VideoPlayer.set_paused(false)
 	else:
 		start_stop_button.text = "Pause"
-		$VideoStreamPlayer.play()
+		VideoPlayer.play()
