@@ -14,11 +14,16 @@ config/name="video-looper"
 run/main_scene="uid://buh0yfn8batec"
 config/use_custom_user_dir=true
 config/features=PackedStringArray("4.5", "Forward Plus")
+run/max_fps=60
+run/low_processor_mode=true
 config/icon="res://icon.svg"
 
 [display]
 
+window/size/viewport_width=1200
+window/size/viewport_height=800
 window/stretch/mode="viewport"
+window/stretch/aspect="expand"
 
 [filesystem]
 
