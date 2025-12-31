@@ -1,10 +1,20 @@
 extends Control
 
+const SUPPORTED_VIDEO: Array[String] = ["ogv", "mp4", "webm", "mov", "avi"]
+const SUPPORTED_AUDIO: Array[String] = ["mp3", "wav", "ogg"]
+# Also tested, not working: .swf
+
+enum Stream_Type {VIDEO, AUDIO}
+
 var loop_start : float = -1
 var loop_end : float = -1
+var stream_duration: float = 1.0
+var stream_name: String
+var stream_type: Stream_Type
 
 @onready var progress_bar = $UIContainer/VBoxContainer/ProgressSlider
 @onready var VideoPlayer = $AspectRatioContainer/VideoStreamPlayer
+@onready var AudioPlayer = $AudioStreamPlayer
 @onready var start_stop_button = $UIContainer/StartStopButton
 @onready var loop_range = $UIContainer/VBoxContainer/HRangeSlider
 
@@ -24,18 +34,25 @@ func _ready() -> void:
 
 	$Timer.timeout.connect(_timer_tick)
 
+
 # callback for ProgressSlider
 func _timestamp_changed(new_timestamp: float) -> void:
 	update_stream_position(new_timestamp)
 	
+	
 # update allthings related to the current stream position
 func update_stream_position(new_timestamp: float) -> void:
-	VideoPlayer.set_stream_position(new_timestamp)
+	if stream_type == Stream_Type.VIDEO:
+		VideoPlayer.set_stream_position(new_timestamp)
+	else:
+		AudioPlayer.play(new_timestamp)
 	update_label()
+	
 
 func update_label() ->void:
-	var pos = VideoPlayer.get_stream_position()
+	var pos = get_stream_position()
 	$UIContainer/VBoxContainer2/current_playtime_label.text=str(pos).pad_decimals(2)
+	
 	
 func _input(event):
 	if event is InputEventKey and event.pressed:
@@ -51,33 +68,75 @@ func _input(event):
 		elif event.keycode == KEY_RIGHT:
 			update_stream_position(VideoPlayer.get_stream_position() + 5)
 
+
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(_delta: float) -> void:
 	pass
 
-func _timer_tick() -> void:
-	var pos = VideoPlayer.get_stream_position()
 
+func get_stream_position() -> float:
+	if stream_type == Stream_Type.VIDEO:
+		return VideoPlayer.get_stream_position()
+	else:
+		return AudioPlayer.get_playback_position()
+
+
+func set_stream_position(new_timestamp: float) -> void:
+	if stream_type == Stream_Type.VIDEO:
+		VideoPlayer.set_stream_position(new_timestamp)
+	else:
+		AudioPlayer.play(new_timestamp)
+
+func _timer_tick() -> void:
+	var pos = get_stream_position()
+	
 	if pos >= loop_end:
-		VideoPlayer.set_stream_position(loop_start)
+		set_stream_position(loop_start)
 		pos = loop_start
 	progress_bar.set_value_no_signal(pos)
 	update_label()
+
 
 func _on_files_dropped(files):
 	print("............")
 	print(files)
 	_setup_stream(files.get(0))
 
+
+func _stop_stream() -> void:
+	VideoPlayer.stop()
+	$Timer.stop()
+	AudioPlayer.stop()
+
+
 # initialize all elements for a new stream
 func _setup_stream(file_name: String) -> void:
 	
-	VideoPlayer.stop()
-	$Timer.stop()
+	_stop_stream()
 	
 	print("Loading ", file_name)
-	VideoPlayer.stream = load(file_name)
-	var stream_duration = VideoPlayer.get_stream_length()
+	if file_name.get_extension() in SUPPORTED_VIDEO:
+		VideoPlayer.stream = load(file_name)
+		stream_duration = VideoPlayer.get_stream_length()
+		stream_name = VideoPlayer.get_stream_name()
+		stream_type = Stream_Type.VIDEO
+	elif file_name.get_extension() in SUPPORTED_AUDIO:
+		# for some unknown reason calling load does not work
+		# so instead we manually call the correct AudioStream constructor
+		# AudioPlayer.stream = load(file_name)
+		if file_name.get_extension() == "ogg":
+			AudioPlayer.stream = AudioStreamOggVorbis.load_from_file(file_name)
+		elif file_name.get_extension() == "mp3":
+			AudioPlayer.stream = AudioStreamMP3.load_from_file(file_name)
+		elif file_name.get_extension() == "wav":
+			AudioPlayer.stream = AudioStreamWAV.load_from_file(file_name)
+		else:
+			OS.alert("Cannot load file.")
+			return
+		stream_duration = AudioPlayer.stream.get_length()
+		stream_name = AudioPlayer.stream.get_name()
+		stream_type = Stream_Type.AUDIO
+		
 	progress_bar.set_max(stream_duration)
 	
 	loop_end = stream_duration
@@ -95,9 +154,10 @@ func _setup_stream(file_name: String) -> void:
 	$UIContainer/VBoxContainer2/loop_begin_label.text= "0"
 	$UIContainer/VBoxContainer2/loop_end_label.text=str(stream_duration).pad_decimals(2)
 	
-	get_window().title = "StreamLooper - " + VideoPlayer.get_stream_name()
+	get_window().title = "StreamLooper - " + stream_name
 	
 	$Timer.start()
+
 
 func loop_selection_changed(range_begin : float, range_end : float):
 	loop_start=range_begin
@@ -105,11 +165,20 @@ func loop_selection_changed(range_begin : float, range_end : float):
 	$UIContainer/VBoxContainer2/loop_begin_label.text= str(range_begin).pad_decimals(2)
 	$UIContainer/VBoxContainer2/loop_end_label.text=str(range_end).pad_decimals(2)
 
+
 # callback play/pause button
 func _button_pressed():
 	toggle_play_state()
 	
+	
 func toggle_play_state() -> void:
+	
+	if stream_type == Stream_Type.VIDEO:
+		_toggle_video_play_state()
+	else:
+		_toggle_audio_play_state()
+
+func _toggle_video_play_state() -> void:
 	print("playing: ", VideoPlayer.is_playing(), " paused:",  VideoPlayer.is_paused())
 	if VideoPlayer.is_playing() and not VideoPlayer.is_paused():
 		start_stop_button.text = "Play"
@@ -120,3 +189,13 @@ func toggle_play_state() -> void:
 	else:
 		start_stop_button.text = "Pause"
 		VideoPlayer.play()
+
+func _toggle_audio_play_state() -> void:
+	if AudioPlayer.is_playing():
+		start_stop_button.text = "Pause"
+		AudioPlayer.stop()
+	else:
+		start_stop_button.text = "Play"
+		AudioPlayer.play()
+	
+	
