@@ -24,7 +24,8 @@ func _ready() -> void:
 	get_tree().root.files_dropped.connect(_on_files_dropped)
 	start_stop_button.pressed.connect(_button_pressed)
 	progress_bar.value_changed.connect(_timestamp_changed)
-
+	loop_range.changed.connect(loop_selection_changed)
+	
 	var args = OS.get_cmdline_args()
 	print("args: ", args)
 	for arg in args:
@@ -40,7 +41,7 @@ func _timestamp_changed(new_timestamp: float) -> void:
 	update_stream_position(new_timestamp)
 	
 	
-# update allthings related to the current stream position
+# update all things related to the current stream position
 func update_stream_position(new_timestamp: float) -> void:
 	if stream_type == Stream_Type.VIDEO:
 		VideoPlayer.set_stream_position(new_timestamp)
@@ -147,7 +148,7 @@ func _setup_stream(file_name: String) -> void:
 	loop_range.range_min_size = 2
 	loop_range.range_begin = 0
 	loop_range.range_end = stream_duration
-	loop_range.changed.connect(loop_selection_changed)
+
 	
 	$UIContainer/VBoxContainer2/current_playtime_label.text= "0"
 	$UIContainer/VBoxContainer2/max_playtime_label.text = str(stream_duration).pad_decimals(2)
