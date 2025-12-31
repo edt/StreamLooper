@@ -12,19 +12,19 @@ Calling `streamlooper <file>` also works.
 The first slider allows defining the start and end points of the loop.  
 The second is a simple progressbar showing you where in file you are.
 
-Supported file formats:
-	For music:
-	- mp3
-	- ogg
-	- wav
+Supported file formats:  
+For music:
+- mp3
+- ogg
+- wav
 	
-	For videos:
-	- mp4
-	- webm
-	- ogv
-	- mov
-	- avi  
-
+For videos:  
+- mp4
+- webm
+- ogv
+- mov
+- avi
+   
 # License
 
 The main project is released under Apache-2.0  
