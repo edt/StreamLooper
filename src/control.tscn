@@ -16,17 +16,13 @@ script = ExtResource("1_5kq6d")
 
 [node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
 
-[node name="AspectRatioContainer" type="AspectRatioContainer" parent="."]
+[node name="VideoStreamPlayer" type="VideoStreamPlayer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-stretch_mode = 3
-
-[node name="VideoStreamPlayer" type="VideoStreamPlayer" parent="AspectRatioContainer"]
-layout_mode = 2
 expand = true
 loop = true
 buffering_msec = 1000
@@ -86,3 +82,5 @@ layout_mode = 2
 text = "1.0"
 
 [node name="Timer" type="Timer" parent="."]
+
+[connection signal="resized" from="." to="." method="_on_resize"]

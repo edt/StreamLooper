@@ -4,16 +4,19 @@ const SUPPORTED_VIDEO: Array[String] = ["ogv", "mp4", "webm", "mov", "avi"]
 const SUPPORTED_AUDIO: Array[String] = ["mp3", "wav", "ogg"]
 # Also tested, not working: .swf
 
-enum Stream_Type {VIDEO, AUDIO}
+enum Stream_Type {UNKNOWN, VIDEO, AUDIO}
 
 var loop_start : float = -1
 var loop_end : float = -1
 var stream_duration: float = 1.0
 var stream_name: String
 var stream_type: Stream_Type
+var video_size : Vector2
+
 
 @onready var progress_bar = $UIContainer/VBoxContainer/ProgressSlider
-@onready var VideoPlayer = $AspectRatioContainer/VideoStreamPlayer
+# @onready var VideoPlayer = $AspectRatioContainer/VideoStreamPlayer
+@onready var VideoPlayer = $VideoStreamPlayer
 @onready var AudioPlayer = $AudioStreamPlayer
 @onready var start_stop_button = $UIContainer/StartStopButton
 @onready var loop_range = $UIContainer/VBoxContainer/HRangeSlider
@@ -110,6 +113,11 @@ func _stop_stream() -> void:
 	AudioPlayer.stop()
 
 
+func _on_resize() -> void:
+	print("RESIZE")
+	set_video_display_rect()
+	
+	
 # initialize all elements for a new stream
 func _setup_stream(file_name: String) -> void:
 	
@@ -121,6 +129,8 @@ func _setup_stream(file_name: String) -> void:
 		stream_duration = VideoPlayer.get_stream_length()
 		stream_name = VideoPlayer.get_stream_name()
 		stream_type = Stream_Type.VIDEO
+		video_size = Vector2(VideoPlayer.get_video_texture().get_width(), VideoPlayer.get_video_texture().get_height())
+		set_video_display_rect()
 	elif file_name.get_extension() in SUPPORTED_AUDIO:
 		# for some unknown reason calling load does not work
 		# so instead we manually call the correct AudioStream constructor
@@ -158,6 +168,42 @@ func _setup_stream(file_name: String) -> void:
 	get_window().title = "StreamLooper - " + stream_name
 	
 	$Timer.start()
+
+
+func set_video_display_rect() -> void:
+	if stream_type != Stream_Type.VIDEO:
+		return
+	if video_size.x <= size.x && video_size.y <= size.y: # center, no stretch
+		VideoPlayer.expand = false
+		VideoPlayer.size = video_size
+		VideoPlayer.position.x = (size.x / 2) - (video_size.x / 2)
+		VideoPlayer.position.y = (size.y / 2) - (video_size.y / 2)
+	else: # center, stretch, keep aspect ratio
+		VideoPlayer.expand = true
+		if video_size.x > video_size.y: # wide screen
+			var ratio = video_size.x / video_size.y
+			VideoPlayer.position = Vector2(0, (size.y / 2) - ((size.x / ratio) / 2))
+			VideoPlayer.size = Vector2(size.x, size.x / ratio)
+			fit_oversized_display_into_window(VideoPlayer, ratio)
+		else: # portrait
+			var ratio = video_size.y / video_size.x
+			VideoPlayer.size = Vector2(size.y / ratio, size.y)
+			VideoPlayer.position = Vector2((size.x / 2) - (VideoPlayer.size.x / 2), 0)
+			fit_oversized_display_into_window(VideoPlayer, ratio)
+
+# The display parameter is dynamic as the same code works for both ImageDisplay and VideoPlayer.
+func fit_oversized_display_into_window(display, ratio : float) -> void:
+	print("in fit_oversize")
+	if display.size.y > size.y:
+		display.position.y = 0
+		display.size.y = size.y
+		display.size.x = size.y * ratio
+		display.position.x = (size.x / 2) - (display.size.x / 2)
+	if display.size.x > size.x:
+		display.position.x = 0
+		display.size.x = size.x
+		display.size.y = size.x * ratio
+		display.position.y = (size.y / 2) - (display.size.y / 2)
 
 
 func loop_selection_changed(range_begin : float, range_end : float):
